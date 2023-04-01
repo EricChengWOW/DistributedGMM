@@ -9,7 +9,10 @@ Independent Project of Distributed Gaussian Mixture Model Clustering Algo
   The Gaussian Mixture Model uses the EM concepts for a general 2-step algorithm. The expectation step represents a soft assignment for each data point to a cluster. The function is defined as a likelihood function for the current clustering status.   
   In this step, the contribution of each data point could be perfectly parallelized, but we would need a global synchronization to gather all intermediate parameters and create the whole likelihood function.   
   The maximization step involves the typical Machine Learning concept of MLE (Maximum Likelihood Estimation). Thus, given the function result of the E step, we will simply use the derivation of each GMM variable to gain the cluster parameters (mean, variance and mixture proportion for each sub-distribution) for the next iteration. 
-From the distributed Perspective, this step either needs to be done sequentially with future parameter distribution to every node (parameter server analogy). Or we need all nodes to have the function, and compute the same next round simultaneously (ring communication analogy).
+From the distributed Perspective, this step either needs to be done sequentially with future parameter distribution to every node (parameter server analogy). Or we need all nodes to have the function, and compute the same next round simultaneously (ring communication analogy).  
+  There are several benefits of clustering algorithms compared with classical clustering algorithms. Firstly, clustering algorithms provide a summary of the pattern of training data. One can get a visualization of the data’s overall patterns by inspecting the data points near the clusters. Secondly, clustering algorithms are unsupervised. Training a clustering algorithm doesn’t require labeled data. In most cases, large size labeled data are costly to acquire. Clustering algorithms overcome this issue. Lastly, clustering algorithms are generative methods. Given the clusters, one can generate a sample based on the model. Other models like logistic regression or decision trees.  
+  Compared to kNN, GMM has several benefits. One is that GMMs can model complex data distributions with multiple peaks, while kNN assumes a simple Euclidean distance metric between data points. This makes GMMs more suitable for data with complex distributions, where there may be multiple overlapping clusters or subgroups. Another benefit of using GMMs is that they can handle missing data and incomplete datasets. GMMs use an iterative approach to estimate the parameters of the underlying distribution, which allows them to make predictions even when there are missing data points. In contrast, kNN requires complete datasets and cannot handle missing data.
+
 
 # Challenge
 ## Workload: 
@@ -29,10 +32,11 @@ We do not need to refer to papers as the algorithm is already clear, but we do n
 ## PLAN TO ACHIEVE:
 Create the correct baseline GMM EM algorithm for clustering  
 Parallelize the algorithm with MPI to separate nodes/threads  
-Test on different designs of communication models (parameter server, ring communication etc), and benchmark the comparison of performance
+Benchmark the performance, and create data visualizations  
 
 ## HOPE TO ACHIEVE:
-Add SIMD parallelization to each node for further utilization of the computing resource
+Try to implement ring communication version for comparison with the parameter server  
+Add SIMD parallelization to each node for further utilization of the computing resource  
 
 ## Demo:
 The demo would contain the image illustration of how our algorithm performs and successfully cluster the dataset  
@@ -55,6 +59,6 @@ Finish implementing the baseline GMM algorithm, come up with data visualization 
 ## 4/17 - 4/23:
 Start to implement the distributed algorithm with parameter server
 ## 4/24 - 4/30: 
-Finish implementing the parameter server version, start to implement the ring communication algorithm. *Try SIMD if time allows
+Finish implementing the parameter server version *Try ring communication, SIMD if time allows
 ## 5/1 - 5/5: 
-Finish implementing both distributed versions, benchmark the performance, and create final analysis
+Benchmark the performance, and create final analysis *Try ring communication, SIMD if time allows
