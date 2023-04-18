@@ -244,6 +244,7 @@ int main(int argc, char *argv[])
             printf("%f ", x);
         }
     }
+    printf("\n");
  
     return 0;
 }
