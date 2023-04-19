@@ -4,6 +4,25 @@ Independent Project of Distributed Gaussian Mixture Model Clustering Algo
 # Summary
   We are planning to implement the traditional Machine Learning clustering algorithm - Mixture of Gaussian in a distributed way. The potential parallelization in the problem includes data parallel for machine learning models, and SIMD processing for each distributed node.
 
+# Current Progress
+  In the past few weeks, we started to implement the project from scratch. We achieved mainly 2 goals in different directions: dataset sampling and sequential algorithm implementation.  
+	For the whole project to work, we first need to create scripts that automatically generate sample dataset and clusters that are easy to scale (for the number cluster and data points), and easy to visualize. We created the scripts in Python to write into a data file which would then be read by the C++ algorithm. We also created the 2-d visualization for the sample dataset so that we can see how they are distributed, and in the same graph we will be able to visualize the clusters with its trained parameters (mean, covariance matrix).  
+	For the sequential algorithm, we first created many linear algebra functions including matrix inverse, multiplication, transpose and so on. Based on these functionalities, we are able to both get the probability of a data point according to a multi-dimensional gaussian distribution, and then complete the sequential version of the algorithm.  
+
+# Updated Schedule
+## 4/3 - 4/9: 
+Get more detailed information about all the computation process, the parallel algorithm, obtain the dataset, and starting to implement the baseline algorithm
+## 4/10 - 4/16: 
+Finish implementing the baseline GMM algorithm, come up with data visualization for how the algorithm clusters
+## 4/19 - 4/22: 
+Finalize data visualization for clearer graphs, create framework for MPI distributed algorithm (Hongzhe)
+## 4/23 - 4/25: 
+Further implement the distributed algorithm in detail (Yuzhou)
+## 4/26 - 4/29: 
+Finalize distributed algorithm, test for correctness, try real world dataset (Hongzhe)
+## 4/30 - 5/5: 
+Performance testing, report writing (Hongzhe), extra goal algorithm if time allows (Yuzhou)
+
 # Background
   Clustering is a traditional important Machine Learning problem that focuses on grouping similar data points (samples, objects, etc) such that samples within the same cluster are more identical and with the similar features or characteristics.  
   The Gaussian Mixture Model uses the EM concepts for a general 2-step algorithm. The expectation step represents a soft assignment for each data point to a cluster. The function is defined as a likelihood function for the current clustering status.   
@@ -51,14 +70,4 @@ We hope to measure the detailed work runtime, and use that to further confirm th
 We would like to use the GHC machine for development and PSC machine for final performance benchmarking since we want to test the scalability of our algorithm to a larger scale.  
 We would develop the algorithm in C++ with access to MPI so that we can better mimic the behavior of multiple computing/storage nodes in the real world large scale situation.
 
-# Schedule
-## 4/3 - 4/9: 
-Get more detailed information about all the computation process, the parallel algorithm, obtain the dataset, and starting to implement the baseline algorithm
-## 4/10 - 4/16: 
-Finish implementing the baseline GMM algorithm, come up with data visualization for how the algorithm clusters
-## 4/17 - 4/23:
-Start to implement the distributed algorithm with parameter server
-## 4/24 - 4/30: 
-Finish implementing the parameter server version *Try ring communication, SIMD if time allows
-## 5/1 - 5/5: 
-Benchmark the performance, and create final analysis *Try ring communication, SIMD if time allows
+
