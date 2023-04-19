@@ -305,6 +305,7 @@ void iterate() {
     int N = dataset.size();
     int M = dataset[0].size();
     vector<vector<double>> eta = zeros(K, N);
+    
     for (int i = 0; i < N; i++) {
         double s = 0;
         for (int j = 0; j < K; j++) {
@@ -321,12 +322,14 @@ void iterate() {
             eta[k][i] += gaussian(dataset[i], mu_list[k], sigma_list[k]) * pi_list[k] / s;
         }
     }
-    // for (int k = 0; k < K; k++) {
-    //     for (int i = 0; i < N; i++) {
-    //         cout << eta[k][i] << " ";
-    //     }
-    //     cout<<endl;
-    // }
+    
+    /*for (int k = 0; k < K; k++) {
+        for (int i = 0; i < N; i++) {
+             cout << eta[k][i] << " ";
+        }
+        cout<<endl;
+    }*/
+    
     for (int k = 0; k < K; k++) {
         double s = 0;
         for (int i = 0; i < N; i++) {
@@ -388,7 +391,7 @@ int main(int argc, char *argv[])
         stringstream ss(line);
 
         // read field by field
-        while (std::getline(ss, field, ','))
+        while (std::getline(ss, field, ' '))
         {
             row.push_back(stod(field));
         }
@@ -398,7 +401,13 @@ int main(int argc, char *argv[])
     
     printf("Recieve Dataset of Size %ld\n", dataset.size());
 
-    // cout<<dataset[0].size() << endl;
+    for (int i = 0; i < 5; i++) {
+        for (auto f : dataset[i]) {
+            printf("%f ", f);
+        }
+        
+        printf("\n");
+    }
 
     // Testing
     init();
@@ -411,23 +420,35 @@ int main(int argc, char *argv[])
             cout<<endl;
         }
     }
-    vector<double> x;
-    // x.push_back(1.23123);
-    // x.push_back(2.1233);
-    // cout << x[0]<<" "<< x[1]<<endl;
-    // vector<double> mean;
-    // mean.push_back(1.2);
-    // mean.push_back(0.223);
-    // cout << mean[0]<<" "<< mean[1]<<endl;
-    // vector<vector<double>> cov;
-    // vector<double> tmp1, tmp2;
-    // tmp1.push_back(1.56);
-    // tmp1.push_back(0.902);
-    // tmp2.push_back(0.123);
-    // tmp2.push_back(0.4224);
-    // cov.push_back(tmp1);
-    // cov.push_back(tmp2);
-    // cout << cov[0][0]<<" "<< cov[0][1]<<endl<< cov[1][0]<<" "<< cov[1][1]<<endl;
-    // cout<<gaussian(x, mean, cov) << endl;
+    
+    for (int j = 0; j < K; j++) {
+        cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
+    }
+    cout<<endl;
+    
+    std::ofstream ofs ("result.txt", std::ofstream::out);
+
+    ofs << "mean\n";
+    
+    for (auto mu : mu_list) {
+        for (auto x : mu) {
+            ofs << x << " ";
+        }
+        ofs << "\n";
+    }
+    
+    ofs << "cov\n";
+    
+    for (auto sigma : sigma_list) {
+        for (auto row : sigma) {
+            for (auto x : row) {
+                ofs << x << " ";
+            }
+        }
+        ofs << "\n";
+    }
+    
+    ofs.close();
+
     return 0;
 }
