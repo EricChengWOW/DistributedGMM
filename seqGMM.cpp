@@ -3,15 +3,20 @@
 #include <iostream>
 #include <vector>
 #include <fstream>      // std::ifstream
+#include <sstream>
 #include <cmath>
 #include <random>
 
 using namespace std;
-double pi = 3.14159265358979323846;
 
-template<class ForwardIt>
-ForwardIt max_element(ForwardIt first, ForwardIt last)
-{
+double pi = 3.14159265358979323846;
+int K = 4; // number of clusters
+vector<vector<double>> mu_list;
+vector<vector<vector<double>>> sigma_list;
+vector<double> pi_list;
+vector<vector<double>> dataset;
+
+template<class ForwardIt> ForwardIt max_element(ForwardIt first, ForwardIt last) {
     if (first == last)
         return last;
  
@@ -167,8 +172,25 @@ vector<vector<double>> matrix_inverse(vector<vector<double>> a) {
     return res;
 }
 
+vector<vector<double>> identity(int dim) {
+    vector<vector<double>> res;
+    for (int i = 0; i < dim; i++) {
+        vector<double> row;
+        for (int j = 0; j < dim; j++) {
+            row.push_back(i == j ? 1.0 : 0.0);
+        }
+        res.push_back(row);
+    }
+    return res;
+}
+
 
 double gaussian (vector<double> x, vector<double> mean, vector<vector<double>> cov) {
+
+    // M = 2
+    // scale = (2*np.pi)**(-M/2)*np.linalg.det(cov)**(-1/2)
+    // return scale*np.exp(-(1/2)*(x-mu).T @ np.linalg.inv(cov) @ (x-mu))
+
     double M = 2;
     double scale = pow((2*pi), (-M/2)) * pow(det(cov), (-1/2));
     
@@ -176,8 +198,8 @@ double gaussian (vector<double> x, vector<double> mean, vector<vector<double>> c
     vector<vector<double>> x_mean {x_minus_mean};
     vector<vector<double>> x_mean_T = transpose(x_mean);
     vector<vector<double>> cov_inv = matrix_inverse(cov);
-    vector<vector<double>> mul_res = matmul(matmul(x_mean_T, cov_inv), x_mean);
-     
+    // cout << x_mean.size() << " " << x_mean[0].size() << " " << x_mean_T.size() << " " << x_mean_T[0].size() << " " << cov_inv.size() << " " << cov_inv[0].size() << endl;
+    vector<vector<double>> mul_res = matmul(matmul(x_mean, cov_inv), x_mean_T);
     double index = - (mul_res[0][0]) / 2;
     return scale * exp(index);
 }
@@ -190,6 +212,140 @@ vector<vector<double>> zeros (int x, int y) {
     }
     
     return res;
+}
+
+vector<vector<double>> inplace_mult (vector<vector<double>> a, vector<vector<double>> b) {
+    int M = a.size();
+    int N = a[0].size();
+    vector<vector<double>> res;
+    for (int i = 0; i < M; i++) {
+        vector<double> row;
+        for (int j = 0; j < N; j++) {
+            row.push_back(a[i][j] * b[i][j]);
+        }
+        res.push_back(row);
+    }
+    return res;
+}
+
+vector<vector<double>> scaler_mult (double a, vector<vector<double>> b) {
+    int M = b.size();
+    int N = b[0].size();
+    vector<vector<double>> res;
+    for (int i = 0; i < M; i++) {
+        vector<double> row;
+        for (int j = 0; j < N; j++) {
+            row.push_back(a * b[i][j]);
+        }
+        res.push_back(row);
+    }
+    return res;
+}
+
+vector<vector<double>> scaler_dev (double a, vector<vector<double>> b) {
+    int M = b.size();
+    int N = b[0].size();
+    vector<vector<double>> res;
+    for (int i = 0; i < M; i++) {
+        vector<double> row;
+        for (int j = 0; j < N; j++) {
+            row.push_back(b[i][j] / a);
+        }
+        res.push_back(row);
+    }
+    return res;
+}
+
+vector<vector<double>> inplace_add (vector<vector<double>> a, vector<vector<double>> b) {
+    int M = a.size();
+    int N = a[0].size();
+    vector<vector<double>> res;
+    for (int i = 0; i < M; i++) {
+        vector<double> row;
+        for (int j = 0; j < N; j++) {
+            row.push_back(a[i][j] + b[i][j]);
+        }
+        res.push_back(row);
+    }
+    return res;
+}
+
+vector<vector<double>> inplace_subtract (vector<vector<double>> a, vector<vector<double>> b) {
+    int M = a.size();
+    int N = a[0].size();
+    vector<vector<double>> res;
+    for (int i = 0; i < M; i++) {
+        vector<double> row;
+        for (int j = 0; j < N; j++) {
+            row.push_back(a[i][j] - b[i][j]);
+        }
+        res.push_back(row);
+    }
+    return res;
+}
+
+void init() {
+
+    for (int k = 0; k < K; k++) {
+        vector<double> tmp1;
+        tmp1.push_back(1.0 * (k + 1));
+        tmp1.push_back(1.0 * (k + 1));
+        mu_list.push_back(tmp1);
+
+        sigma_list.push_back(identity(2));
+
+        pi_list.push_back(1.0 / double(K));
+    }
+}
+
+void iterate() {
+    int N = dataset.size();
+    int M = dataset[0].size();
+    vector<vector<double>> eta = zeros(K, N);
+    for (int i = 0; i < N; i++) {
+        double s = 0;
+        for (int j = 0; j < K; j++) {
+            if (i == 0 && j == 1) {
+                cout<<s<<endl;
+            }
+            s += gaussian(dataset[i], mu_list[j], sigma_list[j]) * pi_list[j];
+        }
+        for (int k = 0; k < K; k++) {
+            eta[k][i] += gaussian(dataset[i], mu_list[k], sigma_list[k]) * pi_list[k] / s;
+        }
+    }
+    for (int k = 0; k < K; k++) {
+        double s = 0;
+        for (int i = 0; i < N; i++) {
+            s += eta[k][i];
+        }
+        pi_list[k] = s / N;
+        vector<double> tmp1;
+        for (int i = 0; i < M; i++) {
+            tmp1.push_back(0.0);
+        }
+        for (int i = 0; i < N; i++) { 
+            vector<double> tmp7;
+            for (int j = 0; j < dataset[i].size(); j++) {
+                tmp1[j] += eta[k][i] * dataset[i][j];
+            }
+        }
+        for (int i = 0; i < tmp1.size(); i++) {
+            tmp1[i] /= s;
+        }
+        mu_list[k] = tmp1;
+        vector<vector<double>> tmp = zeros(M, M);
+        for (int i = 0; i < N; i++) {
+            vector<vector<double>> tmp2, tmp3, tmp4, tmp5, tmp6;
+            tmp2.push_back(dataset[i]);
+            tmp3.push_back(mu_list[k]);
+            tmp4 = inplace_subtract(tmp2, tmp3);
+            tmp5 = transpose(tmp4);
+            tmp6 = matmul(tmp5, tmp4);
+            sigma_list[k] = inplace_add(sigma_list[k], scaler_mult(eta[k][i], tmp6));
+        }
+        sigma_list[k] = scaler_dev(s, sigma_list[k]);
+    }
 }
 
 int main(int argc, char *argv[])
@@ -207,41 +363,43 @@ int main(int argc, char *argv[])
     }
     
     // Read dataset from file
-    std::ifstream in(argv[1], std::ifstream::in);
-    std::vector<std::vector<double>> dataset;
-    int cluster_cnt = std::atoi(argv[2]);
-    
-    while(!in.eof()) {
-      std::string datapoint;
-      getline(in, datapoint);
-      
-      int start = 0;
-      int end = 0;
-      size_t size = datapoint.size();
-      
-      std::vector<double> datapoint_vec;
-      for (size_t i = 0; i < size; i++) {
-          if (datapoint.at(i) == ' ') {
-              datapoint_vec.push_back(std::stod(datapoint.substr(start, i - start)));
-              start = i+1;
-          }
-      }
-      
-      dataset.push_back(datapoint_vec);
-      
+    std::ifstream file(argv[1]);
+    K = std::atoi(argv[2]);
+
+    string line, field;
+
+    // read data line by line
+    while (std::getline(file, line))
+    {
+        vector<double> row;
+        stringstream ss(line);
+
+        // read field by field
+        while (std::getline(ss, field, ','))
+        {
+            row.push_back(stod(field));
+        }
+
+        dataset.push_back(row);
     }
-    dataset.erase(dataset.end());
     
     printf("Recieve Dataset of Size %ld\n", dataset.size());
 
-    
+    // cout<<dataset[0].size() << endl;
+
     // Testing
-    vector<vector<double>> a = {{1, 2, 1}, {3, 4, 1}, {1, 1, 1}};
-    vector<vector<double>> inv = matrix_inverse(a);
-    printf("det is %f\n", det(a));
-    for (auto r : inv) {
-        for (auto x : r) {
-            printf("%f ", x);
+    init();
+    for (int j = 0; j < K; j++) {
+        cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
+    }
+    cout<<endl;
+    for (int i = 1; i < 2; i++) {
+        iterate();
+        if (i % 1 == 0) {
+            for (int j = 0; j < K; j++) {
+                cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
+            }
+            cout<<endl;
         }
     }
     printf("\n");
