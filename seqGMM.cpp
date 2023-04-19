@@ -89,7 +89,7 @@ vector<vector<double>> matmul (vector<vector<double>> A, vector<vector<double>> 
         for (size_t j = 0; j < B_colnum; j++) {
             double x = 0;
             for (size_t k = 0; k < A_colnum; k++) {
-                x += A[i][k] + B[k][j];
+                x += A[i][k] * B[k][j];
             }
             res_row.push_back(x);
         }
@@ -192,13 +192,16 @@ double gaussian (vector<double> x, vector<double> mean, vector<vector<double>> c
     // return scale*np.exp(-(1/2)*(x-mu).T @ np.linalg.inv(cov) @ (x-mu))
 
     double M = 2;
-    double scale = pow((2*pi), (-M/2)) * pow(det(cov), (-1/2));
-    
+    double scale = pow((2*pi), (-(double)M/2.0)) * pow(det(cov), (-(double)1/2.0));
+    // cout<<pow(det(cov), (-1/2))<<endl<< endl;
     vector<double> x_minus_mean = vec_minus(x, mean);
     vector<vector<double>> x_mean {x_minus_mean};
+    // cout << x_mean[0][0] << " " << x_mean[0][1] << endl << endl;
     vector<vector<double>> x_mean_T = transpose(x_mean);
     vector<vector<double>> cov_inv = matrix_inverse(cov);
-    // cout << x_mean.size() << " " << x_mean[0].size() << " " << x_mean_T.size() << " " << x_mean_T[0].size() << " " << cov_inv.size() << " " << cov_inv[0].size() << endl;
+    // cout << cov_inv[0][0] << " " << cov_inv[0][1] << endl << cov_inv[1][0] << " " << cov_inv[1][1] << endl << endl;
+    vector<vector<double>> oxxx = matmul(x_mean, cov_inv);
+    // cout<<oxxx[0][0]<<" "<<oxxx[0][1]<<endl;
     vector<vector<double>> mul_res = matmul(matmul(x_mean, cov_inv), x_mean_T);
     double index = - (mul_res[0][0]) / 2;
     return scale * exp(index);
@@ -305,15 +308,25 @@ void iterate() {
     for (int i = 0; i < N; i++) {
         double s = 0;
         for (int j = 0; j < K; j++) {
-            if (i == 0 && j == 1) {
-                cout<<s<<endl;
-            }
             s += gaussian(dataset[i], mu_list[j], sigma_list[j]) * pi_list[j];
+            // if (i == 0 && j == 0) {
+            //     cout << dataset[i][0] << " " << dataset[i][1] << endl;
+            //     cout << mu_list[j][0] << " " << mu_list[j][1] << endl;
+            //     cout << sigma_list[j][0][0] << " " << sigma_list[j][0][1] << endl;
+            //     cout << sigma_list[j][1][0] << " " << sigma_list[j][1][1] << endl;
+            //     cout << pi_list[j] << endl;
+            // }
         }
         for (int k = 0; k < K; k++) {
             eta[k][i] += gaussian(dataset[i], mu_list[k], sigma_list[k]) * pi_list[k] / s;
         }
     }
+    // for (int k = 0; k < K; k++) {
+    //     for (int i = 0; i < N; i++) {
+    //         cout << eta[k][i] << " ";
+    //     }
+    //     cout<<endl;
+    // }
     for (int k = 0; k < K; k++) {
         double s = 0;
         for (int i = 0; i < N; i++) {
@@ -389,20 +402,32 @@ int main(int argc, char *argv[])
 
     // Testing
     init();
-    for (int j = 0; j < K; j++) {
-        cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
-    }
-    cout<<endl;
-    for (int i = 1; i < 2; i++) {
+    for (int i = 1; i < 101; i++) {
         iterate();
-        if (i % 1 == 0) {
+        if (i % 10 == 1) {
             for (int j = 0; j < K; j++) {
                 cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
             }
             cout<<endl;
         }
     }
-    printf("\n");
- 
+    vector<double> x;
+    // x.push_back(1.23123);
+    // x.push_back(2.1233);
+    // cout << x[0]<<" "<< x[1]<<endl;
+    // vector<double> mean;
+    // mean.push_back(1.2);
+    // mean.push_back(0.223);
+    // cout << mean[0]<<" "<< mean[1]<<endl;
+    // vector<vector<double>> cov;
+    // vector<double> tmp1, tmp2;
+    // tmp1.push_back(1.56);
+    // tmp1.push_back(0.902);
+    // tmp2.push_back(0.123);
+    // tmp2.push_back(0.4224);
+    // cov.push_back(tmp1);
+    // cov.push_back(tmp2);
+    // cout << cov[0][0]<<" "<< cov[0][1]<<endl<< cov[1][0]<<" "<< cov[1][1]<<endl;
+    // cout<<gaussian(x, mean, cov) << endl;
     return 0;
 }
