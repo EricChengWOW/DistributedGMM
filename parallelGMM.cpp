@@ -34,7 +34,7 @@ void init() {
 }
 
 // Each Iteration of GMM algorithm for updating mean, covariance and pi
-void iterate(int pid, int nproc, int* sizes) {
+void iterate(int pid, int nproc, int size) {
     int N = dataset.size();    // local dataset size
     int M = dataset[0].size(); // data dimension
     vector<vector<long double>> eta = zeros(K, N);
@@ -151,26 +151,63 @@ void iterate(int pid, int nproc, int* sizes) {
     }
     //printf("mean done\n");
     
+    // Calculate Pi
     for (int k = 0; k < K; k++) {
-        // Compute the new Pi values
-        long double s = 0.0;
-        for (int i = 0; i < N; i++) {
-            s += eta[k][i];
-        }
-        pi_list[k] = s / N;
-        
-        // Compute the new Sigma values
-        vector<vector<long double>> tmp = zeros(M, M);
+        pi_list[k] = cluster_eta_sum[k] / size;
+    }
+    //printf("pi done\n");
+    
+    // Calculate local covariance
+    for (int k = 0; k < K; k++) {
         for (int i = 0; i < N; i++) {
             vector<vector<long double>> tmp2, tmp3, tmp4, tmp5, tmp6;
             tmp2.push_back(dataset[i]);
             tmp3.push_back(mu_list[k]);
             tmp4 = inplace_subtract(tmp2, tmp3);
             tmp5 = transpose(tmp4);
-            tmp6 = matmul(tmp5, tmp4);
-            sigma_list[k] = inplace_add(sigma_list[k], scaler_mult(eta[k][i], tmp6));
+            tmp6 = scaler_mult(weights[k][i], matmul(tmp5, tmp4));
+            sigma_list[k] = inplace_add(sigma_list[k], tmp6);
         }
-        sigma_list[k] = scaler_dev(s, sigma_list[k]);
+    }
+    //printf("local cov done\n");
+    
+    // Master gather covariance matrix
+    if (pid == 0) {
+        vector<vector<vector<long double>>> node_cov [nproc];
+        
+        for (int i = 0; i < nproc; i++) {
+            for (int r = 0; r < K; r++) {
+                node_cov[i].push_back(zeros(M, M));
+            }
+        }
+        
+        for (int i = 1; i < nproc; i++) {
+            for (int j = 0; j < K; j++) {
+                for (int r = 0; r < M; r++) {
+                    MPI_Recv(node_cov[i][j][r].data(), M * sizeof(long double), MPI_BYTE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+                }
+            }
+        }
+        
+        // Compute real mean for next iteration
+        for (int k = 0; k < K; k++) {
+            for (int i = 1; i < nproc; i++) {
+                sigma_list[k] = inplace_add(sigma_list[k], node_cov[i][k]);
+            }
+        }
+    } else {
+        for (int i = 0; i < K; i++) {
+            for (int r = 0; r < M; r++) {
+                MPI_Isend(sigma_list[i][r].data(), M * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request[0]);
+            }
+        }
+    }
+    //printf("cov comm done %d\n", pid);
+    
+    for (int i = 0; i < K; i++) {
+        for (int r = 0; r < M; r++) {
+            MPI_Bcast(sigma_list[i][r].data(), M * sizeof(long double), MPI_BYTE, 0, MPI_COMM_WORLD);
+        }
     }
 }
 
@@ -261,19 +298,22 @@ int main(int argc, char *argv[])
             MPI_Isend(&N, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &send_request[i]);
         }
     }
+    //printf("Size sent\n");
     
     for (int i = 0; i < nproc; i++) {
         if (i != pid) {
             MPI_Recv(&sizes[i], 1, MPI_INT, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            total_size += sizes[i];
         }
     }
+    MPI_Barrier(MPI_COMM_WORLD);
     
-    printf("Size Communicated\n");
+    if (pid == 0) printf("Size Communicated %d\n", total_size);
     
     int epoch = 100;
     for (int i = 0; i < epoch; i++) {
         // Algorithm iteration
-        iterate(pid, nproc, sizes);
+        iterate(pid, nproc, total_size);
         
         // Log intermediate results
         if (i % 10 == 0 && pid == 0) {
