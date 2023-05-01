@@ -13,7 +13,7 @@ TARGET2 = parallelGMM
 
 .PHONY: all clean
 
-all: parallelGMM
+all: seqGMM parallelGMM
 
 seqGMM: $(OBJ)
 	$(CXX) $(CXXFLAGS) seqGMM.o -o $@
