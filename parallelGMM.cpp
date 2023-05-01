@@ -8,6 +8,7 @@
 #include <random>
 #include "mpi.h"
 #include "linearAlgebra.h"
+#include "timing.h"
 
 using namespace std;
 
@@ -48,13 +49,12 @@ void iterate(int pid, int nproc, int size) {
             s += gaussian(dataset[i], mu_list[j], sigma_list[j]) * pi_list[j];
         }
         
-        if (s == 0.0) s = 2.225E-307;
+        //if (s == 0.0) s = 2.225E-307;
         
         for (int k = 0; k < K; k++) {
             eta[k][i] += gaussian(dataset[i], mu_list[k], sigma_list[k]) * pi_list[k] / s;
         }
     }
-    //printf("local eta\n");
     
     // Compute Local eta sum
     for (int i = 0; i < K; i++) {
@@ -65,7 +65,6 @@ void iterate(int pid, int nproc, int size) {
         
         local_eta_sum.push_back(sum);
     }
-    //printf("local eta sum\n");
     
     // Master Node gather eta sum values and compute sums
     long double cluster_eta_sum[K];
@@ -90,11 +89,9 @@ void iterate(int pid, int nproc, int size) {
     } else {
         MPI_Isend(local_eta_sum.data(), K * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request[0]);
     }
-    //printf("eta comm\n");
     
     // Distribute eta sum
     MPI_Bcast(cluster_eta_sum, K * sizeof(long double), MPI_BYTE, 0, MPI_COMM_WORLD);
-    //printf("eta bcast\n");
     
     // Calcute weights for mean calculation
     long double weights[K][N];
@@ -103,16 +100,14 @@ void iterate(int pid, int nproc, int size) {
             weights[i][j] = eta[i][j] / cluster_eta_sum[i];
         }
     }
-    //printf("weight\n");
     
     // Calculate partial means
     vector<vector<long double>> local_means = zeros(K, M);
     for (int i = 0; i < K; i++) {
         for (int j = 0; j < N; j++) {
-            vec_add_inplace(local_means[i], vec_mul(weights[i][j], dataset[j]));
+            vec_add_inplace(local_means[i], vec_div(cluster_eta_sum[i], vec_mul(eta[i][j], dataset[j])));
         }
     }
-    //printf("local mean\n");
     
     // Master Node gather mean data
     if (pid == 0) {
@@ -143,33 +138,30 @@ void iterate(int pid, int nproc, int size) {
             MPI_Isend(local_means[i].data(), M * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request[0]);
         }
     }
-    //printf("mean comm %d\n", pid);
     
     // Distribute mean
     for (int i = 0; i < K; i++) {
         MPI_Bcast(mu_list[i].data(), M * sizeof(long double), MPI_BYTE, 0, MPI_COMM_WORLD);
     }
-    //printf("mean done\n");
     
     // Calculate Pi
     for (int k = 0; k < K; k++) {
         pi_list[k] = cluster_eta_sum[k] / size;
     }
-    //printf("pi done\n");
     
     // Calculate local covariance
     for (int k = 0; k < K; k++) {
+        sigma_list[k] = zeros(M, M);
         for (int i = 0; i < N; i++) {
             vector<vector<long double>> tmp2, tmp3, tmp4, tmp5, tmp6;
             tmp2.push_back(dataset[i]);
             tmp3.push_back(mu_list[k]);
             tmp4 = inplace_subtract(tmp2, tmp3);
             tmp5 = transpose(tmp4);
-            tmp6 = scaler_mult(weights[k][i], matmul(tmp5, tmp4));
-            sigma_list[k] = inplace_add(sigma_list[k], tmp6);
+            tmp6 = matmul(tmp5, tmp4);
+            sigma_list[k] = inplace_add(sigma_list[k], scaler_mult(eta[k][i], tmp6));
         }
     }
-    //printf("local cov done\n");
     
     // Master gather covariance matrix
     if (pid == 0) {
@@ -189,11 +181,14 @@ void iterate(int pid, int nproc, int size) {
             }
         }
         
-        // Compute real mean for next iteration
         for (int k = 0; k < K; k++) {
             for (int i = 1; i < nproc; i++) {
                 sigma_list[k] = inplace_add(sigma_list[k], node_cov[i][k]);
             }
+        }
+        
+        for (int i = 0; i < K; i++) {
+            sigma_list[i] = scaler_dev(cluster_eta_sum[i], sigma_list[i]);
         }
     } else {
         for (int i = 0; i < K; i++) {
@@ -202,7 +197,6 @@ void iterate(int pid, int nproc, int size) {
             }
         }
     }
-    //printf("cov comm done %d\n", pid);
     
     for (int i = 0; i < K; i++) {
         for (int r = 0; r < M; r++) {
@@ -226,7 +220,7 @@ int main(int argc, char *argv[])
     MPI_Comm_size(MPI_COMM_WORLD, &nproc);
   
     // Node Report
-    printf("Node %d Ready\n", pid);
+    if (pid == 0) printf("\n\nRunning %d nodes version\n", nproc);
     
     // Parsing Commands
     if (argc == 3) {
@@ -261,8 +255,6 @@ int main(int argc, char *argv[])
         whole_dataset.push_back(row);
     }
     
-    if (pid == 0) printf("Recieved Total Dataset of Size %ld\n\n", whole_dataset.size());
-    
     // Get local data
     size_t per_node = (whole_dataset.size() + nproc - 1) / nproc;
     for (size_t i = 0; i < per_node && i < whole_dataset.size(); i++) {
@@ -271,18 +263,11 @@ int main(int argc, char *argv[])
     
     printf("Node %d gets %ld entries\n", pid, dataset.size());
     
-    // Sample Dataset Entry
-    /*for (int i = 0; i < 5; i++) {
-        for (auto f : dataset[i]) {
-            printf("%Lf ", f);
-        }
-        
-        printf("\n\n");
-    }*/
-    
     MPI_Barrier(MPI_COMM_WORLD);
     
     if (pid == 0) printf("--- Start Algorithm ---\n\n");
+    //auto base_time = steady_clock::now();
+    Timer totalSimulationTimer;
     
     // Initialize Parameters
     init();
@@ -298,7 +283,6 @@ int main(int argc, char *argv[])
             MPI_Isend(&N, 1, MPI_INT, i, 0, MPI_COMM_WORLD, &send_request[i]);
         }
     }
-    //printf("Size sent\n");
     
     for (int i = 0; i < nproc; i++) {
         if (i != pid) {
@@ -308,7 +292,7 @@ int main(int argc, char *argv[])
     }
     MPI_Barrier(MPI_COMM_WORLD);
     
-    if (pid == 0) printf("Size Communicated %d\n", total_size);
+    printf("Size Communicated %d : %d\n", pid, total_size);
     
     int epoch = 100;
     for (int i = 0; i < epoch; i++) {
@@ -322,7 +306,25 @@ int main(int argc, char *argv[])
                 cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
             }
             cout<<endl;
+            
+            /*cout << "Pi at Iteration " << i << " ";
+            for (int j = 0; j < K; j++) {
+                cout << pi_list[j] << " ";
+            }
+            cout<<endl;
+            
+            cout << "Sigma at Iteration " << i << " ";
+            for (int j = 0; j < K; j++) {
+                cout << "(" << sigma_list[j][0][0] << "," << sigma_list[j][0][1] << ")" << " " << "(" << sigma_list[j][1][0] << "," << sigma_list[j][1][1] << ")";
+            }
+            cout<<endl<<endl<<endl;*/
         }
+    }
+    
+    double totalSimulationTime = totalSimulationTimer.elapsed();
+    
+    if (pid == 0) {
+        printf("total simulation time: %.6fs\n", totalSimulationTime);
     }
     
     if (pid == 0) {

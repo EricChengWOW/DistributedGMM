@@ -111,6 +111,16 @@ vector<long double> vec_mul (long double x, vector<long double> y) {
     return res;
 }
 
+vector<long double> vec_div (long double x, vector<long double> y) {
+    vector<long double> res;
+    
+    for (size_t i = 0; i < y.size(); i++) {
+        res.push_back(y[i] / x);
+    }
+    
+    return res;
+}
+
 vector<vector<long double>> transpose (vector<vector<long double>> X) {
     size_t rownum = X.size();
     size_t colnum = X[0].size();
@@ -250,6 +260,19 @@ vector<vector<long double>> scaler_dev (long double a, vector<vector<long double
         res.push_back(row);
     }
     return res;
+}
+
+void scaler_dev_inplace (long double a, vector<vector<long double>> &b) {
+    int M = b.size();
+    int N = b[0].size();
+
+    for (int i = 0; i < M; i++) {
+        vector<long double> row;
+        for (int j = 0; j < N; j++) {
+            b[i][j] /= a;
+        }
+    }
+
 }
 
 vector<vector<long double>> inplace_add (vector<vector<long double>> a, vector<vector<long double>> b) {

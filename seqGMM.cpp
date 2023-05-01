@@ -7,6 +7,7 @@
 #include <cmath>
 #include <random>
 #include "linearAlgebra.h"
+#include "timing.h"
 
 using namespace std;
 
@@ -83,7 +84,8 @@ void iterate() {
         mu_list[k] = tmp1;
         
         // Compute the new Sigma values
-        vector<vector<long double>> tmp = zeros(M, M);
+        sigma_list[k] = zeros(M, M);
+        
         for (int i = 0; i < N; i++) {
             vector<vector<long double>> tmp2, tmp3, tmp4, tmp5, tmp6;
             tmp2.push_back(dataset[i]);
@@ -99,7 +101,7 @@ void iterate() {
 
 int main(int argc, char *argv[])
 {
-    std::cout << "Sequential GMM Hello World!\n\n";
+    std::cout << "\n\nSequential GMM Hello World!\n\n";
     
     // Parsing Commands
     if (argc == 3) {
@@ -141,7 +143,8 @@ int main(int argc, char *argv[])
         
         printf("\n\n");
     }
-
+    
+    Timer totalSimulationTimer;
     // Testing
     init();
     int epoch = 100;
@@ -153,8 +156,24 @@ int main(int argc, char *argv[])
                 cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
             }
             cout<<endl;
+            
+            /*cout << "Pi at Iteration " << i << " ";
+            for (int j = 0; j < K; j++) {
+                cout << pi_list[j] << " ";
+            }
+            cout<<endl;
+            
+            cout << "Sigma at Iteration " << i << " ";
+            for (int j = 0; j < K; j++) {
+                cout << "(" << sigma_list[j][0][0] << "," << sigma_list[j][0][1] << ")" << " " << "(" << sigma_list[j][1][0] << "," << sigma_list[j][1][1] << ")";
+            }
+            cout<<endl<<endl<<endl;*/
         }
     }
+    
+    double totalSimulationTime = totalSimulationTimer.elapsed();
+    
+    printf("total simulation time: %.6fs\n", totalSimulationTime);
     
     for (int j = 0; j < K; j++) {
         cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
