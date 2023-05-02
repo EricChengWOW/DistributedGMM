@@ -1,11 +1,11 @@
 import numpy as np
 
 def create_cluster (dimension, num, index):
-    cluster_range = 5
+    cluster_range = 20
     dist = 2 * cluster_range / num
     mean = np.random.uniform(-cluster_range, cluster_range, dimension)
     # mean = [index + 1 - 5 // 2, index + 1 - 5 // 2]
-    cov = np.random.normal(0, 1, (dimension, dimension))
+    cov = np.random.normal(0, 5, (dimension, dimension))
     cov = np.eye(2)
     cov = np.dot(cov, cov.T)
     # cov = np.array([[6, -3], [-3, 3.5]])

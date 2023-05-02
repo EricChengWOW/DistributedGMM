@@ -9,7 +9,7 @@ def gaussian(x, mu, cov):
     scale = (2*np.pi)**(-M/2)*np.linalg.det(cov)**(-1/2)
     return scale*np.exp(-(1/2)*(x-mu).T @ np.linalg.inv(cov) @ (x-mu))
 
-def plot_gaussian(mu, cov, x1_min=-10, x1_max=10, x2_min=-10, x2_max=10, color=None):
+def plot_gaussian(mu, cov, x1_min=-100, x1_max=100, x2_min=-100, x2_max=100, color=None):
     # x and mu should be vectors in numpy, shape=(2,)
     # cov should be a matrix in numpy, shape=(2,2)
 
@@ -34,6 +34,11 @@ def plot_gaussian(mu, cov, x1_min=-10, x1_max=10, x2_min=-10, x2_max=10, color=N
 
 if __name__ == "__main__":
     data = []
+    xmin = 10000000
+    xmax = -10000000
+    ymin = 10000000
+    ymax = -10000000
+    
     with open("test_data.txt", "r") as log:
         lines = log.readlines()
         for line in lines:
@@ -43,6 +48,10 @@ if __name__ == "__main__":
                 data_point[i] = float(data_point[i])
             # print(data_point)
             data.append(data_point)
+            xmin = min(xmin, data_point[0])
+            xmax = max(xmax, data_point[0])
+            ymin = min(ymin, data_point[1])
+            ymax = max(ymax, data_point[1])
     
     dim = 0
     mean = []
@@ -83,7 +92,10 @@ if __name__ == "__main__":
     print(mean)
     print(cov)
     plt.scatter([d[0] for d in data], [d[1] for d in data], alpha=0.5)
+    
+    xRange = xmax - xmin
+    yRange = ymax - ymin
     for i in range(len(mean)):
-        plot_gaussian(mean[i], cov[i])
+        plot_gaussian(mean[i], cov[i], xmin - xRange / 10, xmax + xRange / 10, ymin - yRange / 10, ymax + yRange / 10)
         
     plt.show()

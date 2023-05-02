@@ -12,6 +12,7 @@
 using namespace std;
 
 int K = 4; // number of clusters
+int dim = 2;
 vector<vector<long double>> mu_list;
 vector<vector<vector<long double>>> sigma_list;
 vector<long double> pi_list;
@@ -21,11 +22,12 @@ void init() {
 
     for (int k = 0; k < K; k++) {
         vector<long double> tmp1;
-        tmp1.push_back(1.0 * ((long double)k + 1) - (long double)K / 2.0);
-        tmp1.push_back(1.0 * ((long double)k + 1) - (long double)K / 2.0);
+        for (int i = 0; i < dim; i++) {
+            tmp1.push_back(rand() % 20 - 10);
+        }
         mu_list.push_back(tmp1);
 
-        sigma_list.push_back(identity(2));
+        sigma_list.push_back(identity(dim));
 
         pi_list.push_back(1.0 / (long double)(K));
     }
@@ -145,6 +147,8 @@ int main(int argc, char *argv[])
     }
     
     Timer totalSimulationTimer;
+    
+    dim = dataset[0].size();
     // Testing
     init();
     int epoch = 100;
