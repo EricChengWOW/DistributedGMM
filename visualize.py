@@ -91,7 +91,11 @@ if __name__ == "__main__":
                 
     print(mean)
     print(cov)
-    plt.scatter([d[0] for d in data], [d[1] for d in data], alpha=0.5)
+    cluster_count = len(mean)
+    per_cluster = len(data) // cluster_count
+
+    for i in range(cluster_count):
+        plt.scatter([d[0] for d in data[i * per_cluster : (i+1) * per_cluster]], [d[1] for d in data[i * per_cluster : (i+1) * per_cluster]], alpha=0.5)
     
     xRange = xmax - xmin
     yRange = ymax - ymin
