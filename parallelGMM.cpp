@@ -303,10 +303,15 @@ int main(int argc, char *argv[])
         iterate(pid, nproc, total_size);
         
         // Log intermediate results
-        if (i % 10 == 0 && pid == 0) {
+        if ((i % 10 == 0 || i == epoch - 1) && pid == 0) {
             cout << "Mean at Iteration " << i << " ";
             for (int j = 0; j < K; j++) {
-                cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
+                cout << "(";
+                for (int c = 0; c < dim; c++) {
+                     cout << mu_list[j][c];
+                     if (c != dim - 1) cout << ",";
+                }
+                cout << ") ";
             }
             cout<<endl;
             
@@ -330,13 +335,7 @@ int main(int argc, char *argv[])
         printf("total simulation time: %.6fs\n", totalSimulationTime);
     }
     
-    if (pid == 0) {
-        // Log final mean
-        for (int j = 0; j < K; j++) {
-            cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
-        }
-        cout<<endl;
-        
+    if (pid == 0) {        
         // Store results to file
         std::ofstream ofs ("result.txt", std::ofstream::out);
     

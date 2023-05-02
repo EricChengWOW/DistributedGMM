@@ -154,7 +154,7 @@ int main(int argc, char *argv[])
     int epoch = 100;
     for (int i = 0; i < epoch; i++) {
         iterate();
-        if (i % 10 == 0) {
+        if (i % 10 == 0 || i == epoch - 1) {
             cout << "Mean at Iteration " << i << " ";
             for (int j = 0; j < K; j++) {
                 cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
@@ -178,11 +178,6 @@ int main(int argc, char *argv[])
     double totalSimulationTime = totalSimulationTimer.elapsed();
     
     printf("total simulation time: %.6fs\n", totalSimulationTime);
-    
-    for (int j = 0; j < K; j++) {
-        cout << "(" << mu_list[j][0] << "," << mu_list[j][1] << ")" << " ";
-    }
-    cout<<endl;
     
     std::ofstream ofs ("result.txt", std::ofstream::out);
 
