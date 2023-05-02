@@ -26,7 +26,7 @@ void init() {
     for (int k = 0; k < K; k++) {
         vector<long double> tmp1;
         for (int i = 0; i < dim; i++) {
-            tmp1.push_back((long double)rand() % 20 - 10);
+            tmp1.push_back((long double) (rand() % 20 - 10));
         }
         mu_list.push_back(tmp1);
 
