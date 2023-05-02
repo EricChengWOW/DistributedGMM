@@ -40,6 +40,7 @@ void init() {
 void iterate(int pid, int nproc, int size) {
     int N = dataset.size();    // local dataset size
     int M = dataset[0].size(); // data dimension
+    
     vector<vector<long double>> eta = zeros(K, N);
     vector<long double> local_eta_sum;
     MPI_Request send_request[nproc];
@@ -91,6 +92,7 @@ void iterate(int pid, int nproc, int size) {
     } else {
         MPI_Isend(local_eta_sum.data(), K * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request[0]);
     }
+    //printf("eta\n");
     
     // Distribute eta sum
     MPI_Bcast(cluster_eta_sum, K * sizeof(long double), MPI_BYTE, 0, MPI_COMM_WORLD);
@@ -241,7 +243,6 @@ int main(int argc, char *argv[])
     K = std::atoi(argv[2]);
 
     string line, field;
-
     // read data line by line
     while (std::getline(file, line))
     {
@@ -251,20 +252,26 @@ int main(int argc, char *argv[])
         // read field by field
         while (std::getline(ss, field, ' '))
         {
+            //printf(field);
             row.push_back(stod(field));
         }
 
         whole_dataset.push_back(row);
     }
     
+    printf("Total data count %ld\n", whole_dataset.size());
+    
     // Get local data
     size_t per_node = (whole_dataset.size() + nproc - 1) / nproc;
-    for (size_t i = 0; i < per_node && i < whole_dataset.size(); i++) {
+    for (size_t i = 0; i < per_node && (per_node * pid + i) < whole_dataset.size(); i++) {
         dataset.push_back(whole_dataset[per_node * pid + i]);
     }
     
-    printf("Node %d gets %ld entries\n", pid, dataset.size());
+    for (auto d : dataset) {
+        if (d.size() != 2) printf("Report %d\n", pid);
+    }
     
+    printf("Node %d gets %ld entries %ld dim\n", pid, dataset.size(), dataset[0].size());
     MPI_Barrier(MPI_COMM_WORLD);
     
     if (pid == 0) printf("--- Start Algorithm ---\n\n");

@@ -90,7 +90,7 @@ vector<long double> vec_minus (vector<long double> x, vector<long double> y) {
     vector<long double> res;
     
     if (x.size() != y.size()) {
-        printf("Vector length does not match to minus\n");
+        printf("Vector length does not match to minus %ld %ld\n", x.size(), y.size());
         return res;
     }
     

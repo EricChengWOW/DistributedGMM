@@ -17,7 +17,7 @@ with open('fundamentals.csv', mode ='r')as file:
               i += 1
               continue
           
-          data = lines[3:len(lines)-2]
+          data = lines[3:10]
           valid = True
           
           for d in data:
@@ -34,6 +34,7 @@ with open('fundamentals.csv', mode ='r')as file:
                   log.write(str(float(d)))
               log.write(" ")
           
-          if i != length - 1:
+          if i != length:
               log.write("\n")
           i+=1
+          
