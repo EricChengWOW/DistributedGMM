@@ -15,7 +15,7 @@ def create_cluster (dimension, num, index):
 
 if __name__ == "__main__":
     cluster_count = 5
-    cluster_sizes = [100,100,100,100,100]
+    cluster_sizes = [4000,4000,4000,4000,4000]
     dimension = 2
     
     data = []

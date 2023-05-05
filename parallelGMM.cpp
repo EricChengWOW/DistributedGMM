@@ -9,6 +9,7 @@
 #include "mpi.h"
 #include "linearAlgebra.h"
 #include "timing.h"
+#include <unistd.h>
 
 using namespace std;
 
@@ -19,10 +20,12 @@ vector<vector<vector<long double>>> sigma_list;  // List of Covariance Matrixes
 vector<long double> pi_list;                     // List of Pi Vector (Probability for each Gaussian Distribution)
 vector<vector<long double>> dataset;             // Matrix of per node Dataset
 vector<vector<long double>> whole_dataset;       // Matrix of the whole dataset
+Timer totalSimulationTimer;
+double total_comm_time = 0;
 
 // Initialize the global parameters
 void init() {
-
+    srand(15418);
     for (int k = 0; k < K; k++) {
         vector<long double> tmp1;
         for (int i = 0; i < dim; i++) {
@@ -65,7 +68,6 @@ void iterate(int pid, int nproc, int size) {
         for (int j = 0; j < N ; j++) {
             sum += eta[i][j];
         }
-        
         local_eta_sum.push_back(sum);
     }
     
@@ -78,9 +80,11 @@ void iterate(int pid, int nproc, int size) {
             node_eta[i].resize(K);
         }
         
+        Timer tmptt = Timer();
         for (int i = 1; i < nproc; i++) {
             MPI_Recv(node_eta[i].data(), K * sizeof(long double), MPI_BYTE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
         }
+        total_comm_time += tmptt.elapsed();
         
         // Compute eta sum
         for (int i = 0; i < K; i++) {
@@ -90,12 +94,16 @@ void iterate(int pid, int nproc, int size) {
             }
         }
     } else {
+        Timer tmptt = Timer();
         MPI_Isend(local_eta_sum.data(), K * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request[0]);
+        total_comm_time += tmptt.elapsed();
     }
     //printf("eta\n");
     
     // Distribute eta sum
+    Timer tmptt = Timer();
     MPI_Bcast(cluster_eta_sum, K * sizeof(long double), MPI_BYTE, 0, MPI_COMM_WORLD);
+    total_comm_time += tmptt.elapsed();
     
     // Calcute weights for mean calculation
     long double weights[K][N];
@@ -120,7 +128,8 @@ void iterate(int pid, int nproc, int size) {
         for (int i = 0; i < nproc; i++) {
             node_mean[i] = zeros(K, M);
         }
-        
+
+        Timer tmptt = Timer();
         for (int i = 1; i < nproc; i++) {
             for (int j = 0; j < K; j++) {
                 MPI_Recv(node_mean[i][j].data(), M * sizeof(long double), MPI_BYTE, i, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
@@ -133,20 +142,25 @@ void iterate(int pid, int nproc, int size) {
                 mu_list[i][j] = local_means[i][j];
             }
         }
+        total_comm_time += tmptt.elapsed();
         
         for (int i = 1; i < nproc; i++) {
             mu_list = inplace_add(mu_list, node_mean[i]);
         }
     } else {
+        Timer tmptt = Timer();
         for (int i = 0; i < K; i++) {
             MPI_Isend(local_means[i].data(), M * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request[0]);
         }
+        total_comm_time += tmptt.elapsed();
     }
     
     // Distribute mean
+    tmptt = Timer();
     for (int i = 0; i < K; i++) {
         MPI_Bcast(mu_list[i].data(), M * sizeof(long double), MPI_BYTE, 0, MPI_COMM_WORLD);
     }
+    total_comm_time += tmptt.elapsed();
     
     // Calculate Pi
     for (int k = 0; k < K; k++) {
@@ -177,6 +191,7 @@ void iterate(int pid, int nproc, int size) {
             }
         }
         
+        Timer tmptt = Timer();
         for (int i = 1; i < nproc; i++) {
             for (int j = 0; j < K; j++) {
                 for (int r = 0; r < M; r++) {
@@ -184,6 +199,7 @@ void iterate(int pid, int nproc, int size) {
                 }
             }
         }
+        total_comm_time += tmptt.elapsed();
         
         for (int k = 0; k < K; k++) {
             for (int i = 1; i < nproc; i++) {
@@ -195,18 +211,22 @@ void iterate(int pid, int nproc, int size) {
             sigma_list[i] = scaler_dev(cluster_eta_sum[i], sigma_list[i]);
         }
     } else {
+        Timer tmptt = Timer();
         for (int i = 0; i < K; i++) {
             for (int r = 0; r < M; r++) {
                 MPI_Isend(sigma_list[i][r].data(), M * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, &send_request[0]);
             }
         }
+        total_comm_time += tmptt.elapsed();
     }
     
+    tmptt = Timer();
     for (int i = 0; i < K; i++) {
         for (int r = 0; r < M; r++) {
             MPI_Bcast(sigma_list[i][r].data(), M * sizeof(long double), MPI_BYTE, 0, MPI_COMM_WORLD);
         }
     }
+    total_comm_time += tmptt.elapsed();
 }
 
 int main(int argc, char *argv[])
@@ -239,44 +259,85 @@ int main(int argc, char *argv[])
     }
     
     // Read dataset from file
-    std::ifstream file(argv[1]);
+    
     K = std::atoi(argv[2]);
 
-    string line, field;
-    // read data line by line
-    while (std::getline(file, line))
-    {
-        vector<long double> row;
-        stringstream ss(line);
+    MPI_Barrier(MPI_COMM_WORLD);
+    MPI_Request send_data_request[nproc];
 
-        // read field by field
-        while (std::getline(ss, field, ' '))
+    totalSimulationTimer = Timer();
+    if (pid == 0) {
+        std::ifstream file(argv[1]);
+        string line, field;
+        // read data line by line
+        while (std::getline(file, line))
         {
-            //printf(field);
-            row.push_back(stod(field));
-        }
+            vector<long double> row;
+            stringstream ss(line);
 
-        whole_dataset.push_back(row);
+            // read field by field
+            while (std::getline(ss, field, ' '))
+            {
+                //printf(field);
+                row.push_back(stod(field));
+            }
+
+            whole_dataset.push_back(row);
+        }
+	printf("file read finished!!!!!!!!!!!!!!!!!!!!!!!!\n");
+        
+        // Get local data
+	size_t cnti = 0;
+        for (int j = 0; j < nproc; j++) {
+            vector<vector<long double>> tmp_dataset;   
+            size_t per_node = (whole_dataset.size() + nproc - 1) / nproc;
+            tmp_dataset.clear();
+	    int step_size = per_node - (cnti >= whole_dataset.size() % nproc);
+            for (int i = 0; i < step_size; i++) {
+                if (j == 0) {
+                    dataset.push_back(whole_dataset[cnti]);
+                }
+                else {
+                    tmp_dataset.push_back(whole_dataset[cnti]);
+                }
+		cnti++;
+            }
+            if (j > 0) {
+                int tmp_data_size = tmp_dataset.size();
+                int tmp_data_dim = tmp_dataset[0].size();
+		printf("for node: %d, data size: %d, data dim: %d\n", j, tmp_data_size, tmp_data_dim);
+                MPI_Send(&tmp_data_size, 1, MPI_INT, j, 0, MPI_COMM_WORLD);
+                MPI_Send(&tmp_data_dim, 1, MPI_INT, j, 0, MPI_COMM_WORLD);
+                for (int k = 0; k < tmp_data_size; k++) {
+                    MPI_Send(tmp_dataset[k].data(), tmp_data_dim * sizeof(long double), MPI_BYTE, j, 0, MPI_COMM_WORLD);
+                }
+            }
+	    else {
+		printf("%d nodes in total\n", nproc);
+	    }
+        }
+    }
+    else {
+        int recv_size, recv_dim;
+        MPI_Recv(&recv_size, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        MPI_Recv(&recv_dim, 1, MPI_INT, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+        long double recv_buffer[recv_dim];
+        for (size_t i = 0; i < recv_size; i++) {
+            MPI_Recv(recv_buffer, recv_dim * sizeof(long double), MPI_BYTE, 0, 0, MPI_COMM_WORLD, MPI_STATUS_IGNORE);
+            vector<long double> tmp_vector(recv_buffer, recv_buffer + recv_dim);
+            dataset.push_back(tmp_vector);
+        }
+    }
+
+    if (pid == 0) {
+        printf("node: %d inital data transmission time: %.6fs\n", pid, totalSimulationTimer.elapsed());
     }
     
-    printf("Total data count %ld\n", whole_dataset.size());
-    
-    // Get local data
-    size_t per_node = (whole_dataset.size() + nproc - 1) / nproc;
-    for (size_t i = 0; i < per_node && (per_node * pid + i) < whole_dataset.size(); i++) {
-        dataset.push_back(whole_dataset[per_node * pid + i]);
-    }
-    
-    for (auto d : dataset) {
-        if (d.size() != 2) printf("Report %d\n", pid);
-    }
-    
-    printf("Node %d gets %ld entries %ld dim\n", pid, dataset.size(), dataset[0].size());
+    // printf("Node %d gets %ld entries %ld dim %Lf\n", pid, dataset.size(), dataset[0].size(), dataset[249][0]);
     MPI_Barrier(MPI_COMM_WORLD);
     
     if (pid == 0) printf("--- Start Algorithm ---\n\n");
     //auto base_time = steady_clock::now();
-    Timer totalSimulationTimer;
     
     // Initialize Parameters
     dim = dataset[0].size();
@@ -302,7 +363,7 @@ int main(int argc, char *argv[])
     }
     MPI_Barrier(MPI_COMM_WORLD);
     
-    printf("Size Communicated %d : %d\n", pid, total_size);
+    // printf("Size Communicated %d : %d\n", pid, total_size);
     
     int epoch = 100;
     for (int i = 0; i < epoch; i++) {
@@ -321,27 +382,16 @@ int main(int argc, char *argv[])
                 cout << ") ";
             }
             cout<<endl;
-            
-            /*cout << "Pi at Iteration " << i << " ";
-            for (int j = 0; j < K; j++) {
-                cout << pi_list[j] << " ";
-            }
-            cout<<endl;
-            
-            cout << "Sigma at Iteration " << i << " ";
-            for (int j = 0; j < K; j++) {
-                cout << "(" << sigma_list[j][0][0] << "," << sigma_list[j][0][1] << ")" << " " << "(" << sigma_list[j][1][0] << "," << sigma_list[j][1][1] << ")";
-            }
-            cout<<endl<<endl<<endl;*/
         }
     }
     
     double totalSimulationTime = totalSimulationTimer.elapsed();
     
     if (pid == 0) {
-        printf("total simulation time: %.6fs\n", totalSimulationTime);
+        printf("node: %d total simulation time: %.6fs\n", pid, totalSimulationTime);
+        printf("node: %d total communication time: %.6fs\n", pid, total_comm_time);
     }
-    
+        
     if (pid == 0) {        
         // Store results to file
         std::ofstream ofs ("result.txt", std::ofstream::out);
